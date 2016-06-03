@@ -1,0 +1,58 @@
+* Tangle file:./script/partition-usb-flash-drive-mbr-boot.sh
+  #+BEGIN_SRC sh :tangle ./script/partition-usb-flash-drive-mbr-boot.sh :shebang #!/bin/bash :noweb yes
+    set -o nounset
+
+    DEVICE="/dev/sdb"
+    BOOT_PARTITION="${DEVICE}1"
+    ROOT_PARTITION="${DEVICE}2"
+    LABEL="PNY16GB"
+
+    <<WIPE_THE_DEVICE>>
+
+    <<CREATE_MBR_PARTITION_TABLE>>
+
+    <<CREATE_FAT32_BOOT_PARTITION>>
+
+    <<CREATE_EXT4_ROOT_PARTITION>>
+  #+END_SRC
+** WIPE_THE_DEVICE
+   #+NAME: WIPE_THE_DEVICE
+   #+BEGIN_SRC sh
+     wipefs --all ${DEVICE}
+   #+END_SRC
+** CREATE_MBR_PARTITION_TABLE
+   #+NAME: CREATE_MBR_PARTITION_TABLE
+   #+BEGIN_SRC sh
+    # Create a BIOS/MBR partition table with parted
+    parted --script ${DEVICE} mklabel msdos
+   #+END_SRC
+** CREATE_FAT32_BOOT_PARTITION
+   #+NAME: CREATE_FAT32_BOOT_PARTITION
+   #+BEGIN_SRC sh
+     # Create an fat32 boot partition with parted
+     PART_TYPE="primary"
+     FS_TYPE="fat32"
+     START="1MiB"
+     END="513MiB"
+
+     parted --script ${DEVICE} mkpart $PART_TYPE $FS_TYPE $START $END
+     parted --script ${DEVICE} set 1 boot on
+   #+END_SRC
+
+
+    # Format the boot partition (requires dosfstools package)
+    mkfs.fat -F32 ${BOOT_PARTITION}
+
+** CREATE_EXT4_ROOT_PARTITION
+   #+NAME: CREATE_EXT4_ROOT_PARTITION
+   #+BEGIN_SRC sh
+     # Create a root partition with parted
+     START="513MiB"
+     PART_TYPE="primary"
+     FS_TYPE="ext4"
+     END="100%"
+     parted --script ${DEVICE} mkpart ${PART_TYPE} ${FS_TYPE} ${START} ${END}
+
+     # Format the root partition
+     mkfs.ext4 -v -L ${LABEL} ${ROOT_PARTITION}
+   #+END_SRC
